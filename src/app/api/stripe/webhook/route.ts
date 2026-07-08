@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe, stripeEnabled } from "@/lib/stripe";
+import {
+  stripe,
+  stripeEnabled,
+  appStatusFor,
+  planFromPriceId,
+  subscriptionPeriodEnd,
+  subscriptionPriceId,
+} from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,7 +16,35 @@ import { prisma } from "@/lib/prisma";
  *   checkout.session.completed
  *   customer.subscription.updated
  *   customer.subscription.deleted
+ * (The account page also reconciles the checkout session on return, so
+ * initial provisioning does not depend solely on this endpoint.)
  */
+
+async function userForSubscription(sub: Stripe.Subscription) {
+  const byMeta = sub.metadata?.userId
+    ? await prisma.user.findUnique({ where: { id: sub.metadata.userId } })
+    : null;
+  if (byMeta) return byMeta;
+  const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+  if (customerId) {
+    return prisma.user.findUnique({ where: { stripeCustomerId: customerId } });
+  }
+  return null;
+}
+
+async function applySubscriptionState(userId: string, sub: Stripe.Subscription) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      subscriptionId: sub.id,
+      subscriptionStatus: appStatusFor(sub.status),
+      plan: planFromPriceId(subscriptionPriceId(sub)),
+      currentPeriodEnd: subscriptionPeriodEnd(sub),
+      cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    },
+  });
+}
+
 export async function POST(req: Request) {
   if (!stripeEnabled || !stripe) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 501 });
@@ -32,56 +67,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.metadata?.userId;
-      const plan = session.metadata?.plan;
-      if (userId && session.subscription) {
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== "subscription" || !session.subscription) break;
+        if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") break;
         const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+        const userId = session.metadata?.userId ?? sub.metadata?.userId;
+        if (userId) await applySubscriptionState(userId, sub);
+        else console.error(`webhook: no userId on checkout session ${session.id}`);
+        break;
+      }
+      case "customer.subscription.updated": {
+        const sub = event.data.object as Stripe.Subscription;
+        const user = await userForSubscription(sub);
+        if (!user) {
+          console.error(`webhook: no user for subscription ${sub.id}`);
+          break;
+        }
+        // Ignore events from a stale/replaced subscription (out-of-order or
+        // duplicate-subscription scenarios must not clobber the current one).
+        if (user.subscriptionId && user.subscriptionId !== sub.id) break;
+        await applySubscriptionState(user.id, sub);
+        break;
+      }
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const user = await userForSubscription(sub);
+        if (!user) break;
+        if (user.subscriptionId && user.subscriptionId !== sub.id) break;
         await prisma.user.update({
-          where: { id: userId },
+          where: { id: user.id },
           data: {
-            subscriptionId: sub.id,
-            subscriptionStatus: "active",
-            plan: plan ?? null,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000),
+            subscriptionStatus: "canceled",
+            subscriptionId: null,
+            plan: null,
+            cancelAtPeriodEnd: false,
           },
         });
+        break;
       }
-      break;
     }
-    case "customer.subscription.updated": {
-      const sub = event.data.object as Stripe.Subscription;
-      const userId = sub.metadata?.userId;
-      if (userId) {
-        const status =
-          sub.status === "active" || sub.status === "trialing"
-            ? "active"
-            : sub.status === "past_due"
-              ? "past_due"
-              : "canceled";
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            subscriptionStatus: status,
-            currentPeriodEnd: new Date(sub.current_period_end * 1000),
-          },
-        });
-      }
-      break;
-    }
-    case "customer.subscription.deleted": {
-      const sub = event.data.object as Stripe.Subscription;
-      const userId = sub.metadata?.userId;
-      if (userId) {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { subscriptionStatus: "canceled", subscriptionId: null, plan: null },
-        });
-      }
-      break;
-    }
+  } catch (err) {
+    console.error(`webhook: error handling ${event.type}`, err);
+    // Non-2xx makes Stripe retry with backoff — desirable for transient DB errors.
+    return NextResponse.json({ error: "Handler failed" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

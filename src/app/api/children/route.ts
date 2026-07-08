@@ -3,12 +3,22 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ageInMonths } from "@/lib/age";
+import { isSubscribed } from "@/lib/activities";
+
+const MAX_AGE_MONTHS = 78;
 
 const childSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
-  birthDate: z.coerce.date().refine((d) => d <= new Date(), {
-    message: "Birth date can't be in the future",
-  }),
+  birthDate: z.coerce
+    .date()
+    // +26h tolerance: "today" east of UTC parses as a future UTC instant.
+    .refine((d) => d.getTime() <= Date.now() + 26 * 3600_000, {
+      message: "Birth date can't be in the future",
+    })
+    .refine((d) => ageInMonths(d) <= MAX_AGE_MONTHS, {
+      message: "TinySteps covers newborns to 6-year-olds",
+    }),
 });
 
 export async function GET() {
@@ -39,9 +49,7 @@ export async function POST(req: Request) {
 
   // Free plan includes one child profile; Premium is unlimited.
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  const subscribed =
-    user?.subscriptionStatus === "active" || user?.subscriptionStatus === "past_due";
-  if (!subscribed) {
+  if (!user || !isSubscribed(user)) {
     const count = await prisma.child.count({ where: { userId: session.user.id } });
     if (count >= 1) {
       return NextResponse.json(

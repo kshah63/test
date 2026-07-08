@@ -7,13 +7,14 @@ import Nav from "@/components/Nav";
 import ActivityCard from "@/components/ActivityCard";
 import { AGE_BANDS, CATEGORIES, ageInMonths } from "@/lib/age";
 import { isSubscribed } from "@/lib/activities";
+import { todayKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 export default async function ActivitiesPage({
   searchParams,
 }: {
-  searchParams: { band?: string; category?: string };
+  searchParams: { band?: string; category?: string; child?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
@@ -24,10 +25,13 @@ export default async function ActivitiesPage({
   });
   if (!user) redirect("/login");
   const subscribed = isSubscribed(user);
-  const child = user.children[0];
+  const child =
+    user.children.find((c) => c.id === searchParams.child) ?? user.children[0];
 
-  // Default the age filter to the first child's band.
-  const childMonths = child ? ageInMonths(child.birthDate) : null;
+  const today = todayKey();
+
+  // Default the age filter to the selected child's band.
+  const childMonths = child ? ageInMonths(child.birthDate, today) : null;
   const defaultBand =
     childMonths === null
       ? undefined
@@ -46,22 +50,63 @@ export default async function ActivitiesPage({
     orderBy: [{ ageMinMonths: "asc" }, { title: "asc" }],
   });
 
+  // Which of these has the selected child already done today?
+  const doneToday = child
+    ? new Set(
+        (
+          await prisma.activityCompletion.findMany({
+            where: { childId: child.id, completedOn: today },
+            select: { activityId: true },
+          })
+        ).map((c) => c.activityId)
+      )
+    : new Set<string>();
+
   const linkFor = (nextBand?: string, nextCat?: string) => {
     const params = new URLSearchParams();
     params.set("band", nextBand ?? "all");
     if (nextCat) params.set("category", nextCat);
+    if (child) params.set("child", child.id);
     return `/activities?${params.toString()}`;
   };
   const currentBandParam = band?.label ?? "all";
+
+  const childLink = (childId: string) => {
+    const params = new URLSearchParams();
+    if (searchParams.band) params.set("band", searchParams.band);
+    if (category) params.set("category", category);
+    params.set("child", childId);
+    return `/activities?${params.toString()}`;
+  };
 
   return (
     <>
       <Nav />
       <main className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="font-display text-3xl font-bold">Activity library</h1>
-        <p className="mt-1 text-ink/60">
+        <p className="mt-1 text-ink/70">
           Every activity takes about 10 minutes with things you have at home.
         </p>
+
+        {/* Child switcher — completions are logged for the selected child */}
+        {user.children.length > 1 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-ink/60">Playing with:</span>
+            {user.children.map((c) => (
+              <Link
+                key={c.id}
+                href={childLink(c.id)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+                  c.id === child?.id
+                    ? "bg-terracotta text-white"
+                    : "border border-peach bg-white hover:bg-blush"
+                }`}
+              >
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {/* Age filter */}
         <div className="mt-6 flex flex-wrap gap-2">
@@ -119,12 +164,13 @@ export default async function ActivitiesPage({
               key={a.id}
               activity={a}
               childId={child?.id}
+              completed={doneToday.has(a.id)}
               locked={a.isPremium && !subscribed}
             />
           ))}
         </div>
         {activities.length === 0 && (
-          <p className="mt-8 rounded-2xl border border-peach/50 bg-white p-6 text-ink/60">
+          <p className="mt-8 rounded-2xl border border-peach/50 bg-white p-6 text-ink/70">
             No activities match those filters yet.
           </p>
         )}

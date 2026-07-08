@@ -7,7 +7,8 @@ import Nav from "@/components/Nav";
 import ActivityCard from "@/components/ActivityCard";
 import WeekTracker from "@/components/WeekTracker";
 import { ageInMonths, ageLabel } from "@/lib/age";
-import { dailyActivitiesFor, dayKey, weekDays, isSubscribed } from "@/lib/activities";
+import { dailyActivitiesFor, isSubscribed } from "@/lib/activities";
+import { todayKey, userTimeZone, weekDays } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,12 @@ export default async function DashboardPage({
 
   const child =
     user.children.find((c) => c.id === searchParams.child) ?? user.children[0];
-  const months = ageInMonths(child.birthDate);
+  const today = todayKey();
+  const months = ageInMonths(child.birthDate, today);
   const subscribed = isSubscribed(user);
 
-  const picks = await dailyActivitiesFor(months);
-  const today = dayKey();
-  const week = weekDays();
+  const picks = await dailyActivitiesFor(months, today);
+  const week = weekDays(today);
   const todayIndex = week.findIndex((d) => d.getTime() === today.getTime());
 
   const [todayCompletions, weekCompletions] = await Promise.all([
@@ -54,17 +55,14 @@ export default async function DashboardPage({
     (d) => weekCompletions.filter((c) => c.completedOn.getTime() === d.getTime()).length
   );
 
-  // Free plan: the first non-premium pick is today's featured activity; the
-  // rest of the day's picks are Premium.
-  const featuredIndex = subscribed
-    ? -1
-    : Math.max(0, picks.findIndex((p) => !p.isPremium));
-
   const dateLabel = new Date().toLocaleDateString("en-US", {
+    timeZone: userTimeZone(),
     weekday: "long",
     month: "long",
     day: "numeric",
   });
+
+  const hasLockedPicks = !subscribed && picks.some((p) => p.isPremium);
 
   return (
     <>
@@ -79,7 +77,7 @@ export default async function DashboardPage({
                 href={`/dashboard?child=${c.id}`}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium ${
                   c.id === child.id
-                    ? "bg-coral text-white"
+                    ? "bg-terracotta text-white"
                     : "border border-peach bg-white hover:bg-blush"
                 }`}
               >
@@ -91,16 +89,16 @@ export default async function DashboardPage({
 
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm text-ink/50">{dateLabel}</p>
+            <p className="text-sm text-ink/60">{dateLabel}</p>
             <h1 className="font-display text-3xl font-bold">
               Today with {child.name}
             </h1>
-            <p className="mt-1 text-ink/60">
+            <p className="mt-1 text-ink/70">
               {ageLabel(months)} old · activities matched to this stage
             </p>
           </div>
           <div className="rounded-2xl border border-peach/50 bg-white px-5 py-4">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/50">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink/60">
               This week
             </p>
             <WeekTracker days={weekCounts} todayIndex={todayIndex} />
@@ -112,25 +110,25 @@ export default async function DashboardPage({
             <h2 className="font-display text-xl font-semibold">
               Today&apos;s 10-minute activities
             </h2>
-            {!subscribed && (
+            {hasLockedPicks && (
               <Link href="/account" className="text-sm font-medium text-terracotta hover:underline">
                 Unlock all 3 →
               </Link>
             )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {picks.map((activity, i) => (
+            {picks.map((activity) => (
               <ActivityCard
                 key={activity.id}
                 activity={activity}
                 childId={child.id}
                 completed={doneToday.has(activity.id)}
-                locked={!subscribed && i !== featuredIndex}
+                locked={!subscribed && activity.isPremium}
               />
             ))}
           </div>
           {picks.length === 0 && (
-            <p className="rounded-2xl border border-peach/50 bg-white p-6 text-ink/60">
+            <p className="rounded-2xl border border-peach/50 bg-white p-6 text-ink/70">
               No activities found for this age yet — check the{" "}
               <Link href="/activities" className="text-terracotta underline">
                 library
@@ -142,7 +140,7 @@ export default async function DashboardPage({
 
         <section className="mt-10 rounded-2xl border border-peach/50 bg-blush/40 p-6">
           <h3 className="font-display font-semibold">💡 Why 10 minutes matters</h3>
-          <p className="mt-1 text-sm text-ink/70">
+          <p className="mt-1 text-sm text-ink/80">
             In the first years of life, more than a million new neural connections form
             every second — and they&apos;re strengthened most by short, warm, back-and-forth
             interactions with you. Ten focused minutes a day beats an hour of distracted time.

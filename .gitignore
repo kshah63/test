@@ -28,3 +28,6 @@ prisma/*.db-journal
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# stray runtime logs
+*.log

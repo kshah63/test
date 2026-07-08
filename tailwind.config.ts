@@ -9,7 +9,8 @@ const config: Config = {
         blush: "#FDE8E4",
         peach: "#F9C6B8",
         coral: "#F08A6C",
-        terracotta: "#D96C4F",
+        // Dark enough for 4.5:1 white-text contrast (WCAG AA) on buttons.
+        terracotta: "#C14A2B",
         sage: "#A8C3A0",
         deepsage: "#5F7A5A",
         ink: "#3D3230",

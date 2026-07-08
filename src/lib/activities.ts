@@ -1,50 +1,63 @@
 import { prisma } from "@/lib/prisma";
 import type { Activity } from "@prisma/client";
+import { dayOfYear } from "@/lib/dates";
 
-/** Number of activities suggested per day. Free users can open only the first. */
+/** Number of activities suggested per day. */
 export const DAILY_COUNT = 3;
 
-/** Normalize a date to midnight UTC — completions are stored per-day. */
-export function dayKey(d: Date = new Date()): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-function dayOfYear(d: Date): number {
-  const start = Date.UTC(d.getUTCFullYear(), 0, 0);
-  return Math.floor((d.getTime() - start) / 86_400_000);
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
 }
 
 /**
- * Deterministic daily picks: every activity age-appropriate for the child,
- * rotated by day-of-year so the suggestions change each day but stay stable
- * within a day (and across page refreshes).
+ * Deterministic daily picks for a child's age: rank the age-appropriate pool
+ * by a per-day hash and take the top picks, so suggestions change every day
+ * (including across year boundaries) but stay stable within a day.
+ * Free users can always use a non-premium pick, so when the pool has one we
+ * guarantee at least one non-premium pick, ordered first (the "featured" pick).
  */
 export async function dailyActivitiesFor(
   ageMonths: number,
-  date: Date = new Date()
+  dayKey: Date
 ): Promise<Activity[]> {
   const pool = await prisma.activity.findMany({
     where: { ageMinMonths: { lte: ageMonths }, ageMaxMonths: { gte: ageMonths } },
     orderBy: { slug: "asc" },
   });
   if (pool.length === 0) return [];
-  const offset = dayOfYear(date) % pool.length;
-  const picks: Activity[] = [];
-  const step = Math.max(1, Math.floor(pool.length / DAILY_COUNT));
-  for (let i = 0; i < Math.min(DAILY_COUNT, pool.length); i++) {
-    picks.push(pool[(offset + i * step) % pool.length]);
+
+  const seed = dayKey.getUTCFullYear() * 379 + dayOfYear(dayKey);
+  const ranked = [...pool].sort(
+    (a, b) => hashStr(`${seed}:${a.slug}`) - hashStr(`${seed}:${b.slug}`)
+  );
+  const picks = ranked.slice(0, Math.min(DAILY_COUNT, ranked.length));
+
+  if (!picks.some((p) => !p.isPremium)) {
+    const nonPremium = ranked.find((p) => !p.isPremium);
+    if (nonPremium) picks[picks.length - 1] = nonPremium;
   }
+  // Non-premium first so free users' usable pick leads the list.
+  picks.sort((a, b) => Number(a.isPremium) - Number(b.isPremium));
   return picks;
 }
 
-/** Monday-start week containing `date`, as an array of 7 day-keys (UTC). */
-export function weekDays(date: Date = new Date()): Date[] {
-  const key = dayKey(date);
-  const dow = (key.getUTCDay() + 6) % 7; // Monday = 0
-  const monday = new Date(key.getTime() - dow * 86_400_000);
-  return Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * 86_400_000));
-}
-
-export function isSubscribed(user: { subscriptionStatus: string }): boolean {
-  return user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due";
+export function isSubscribed(user: {
+  subscriptionStatus: string;
+  subscriptionId?: string | null;
+  currentPeriodEnd?: Date | null;
+}): boolean {
+  const active =
+    user.subscriptionStatus === "active" || user.subscriptionStatus === "past_due";
+  if (!active) return false;
+  // Demo subscriptions have no renewal machinery — expire them by period end.
+  if (
+    user.subscriptionId?.startsWith("demo_") &&
+    user.currentPeriodEnd &&
+    user.currentPeriodEnd.getTime() < Date.now()
+  ) {
+    return false;
+  }
+  return true;
 }

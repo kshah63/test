@@ -3,7 +3,16 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { stripe, stripeEnabled, priceIdFor, PLANS, type PlanKey } from "@/lib/stripe";
+import { isSubscribed } from "@/lib/activities";
+import {
+  stripe,
+  stripeEnabled,
+  demoBillingAllowed,
+  appUrl,
+  priceIdFor,
+  PLANS,
+  type PlanKey,
+} from "@/lib/stripe";
 
 const checkoutSchema = z.object({
   plan: z.enum(["monthly", "yearly"]),
@@ -11,8 +20,8 @@ const checkoutSchema = z.object({
 
 /**
  * Start a subscription. With Stripe configured this creates a Checkout
- * Session and returns its URL. Without Stripe keys (local development) it
- * activates the subscription directly — demo billing mode.
+ * Session. Without Stripe keys, demo billing mode (explicitly enabled)
+ * activates the subscription directly; otherwise the endpoint fails closed.
  */
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -30,11 +39,21 @@ export async function POST(req: Request) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
-
-  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  if (isSubscribed(user)) {
+    return NextResponse.json(
+      { error: "You already have an active subscription. Manage it from the account page." },
+      { status: 409 }
+    );
+  }
 
   if (!stripeEnabled || !stripe) {
-    // Demo billing mode — no Stripe keys configured.
+    if (!demoBillingAllowed()) {
+      return NextResponse.json(
+        { error: "Billing is not configured. Set the Stripe environment variables." },
+        { status: 503 }
+      );
+    }
+    // Demo billing mode — explicitly enabled, no payment collected.
     const periodEnd = new Date();
     if (plan === "yearly") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
     else periodEnd.setMonth(periodEnd.getMonth() + 1);
@@ -44,10 +63,11 @@ export async function POST(req: Request) {
         subscriptionStatus: "active",
         plan,
         currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd: false,
         subscriptionId: `demo_${plan}_${Date.now()}`,
       },
     });
-    return NextResponse.json({ url: `${appUrl}/account?upgraded=1`, demo: true });
+    return NextResponse.json({ url: `${appUrl()}/account?upgraded=1`, demo: true });
   }
 
   const priceId = priceIdFor(plan);
@@ -79,8 +99,10 @@ export async function POST(req: Request) {
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: { metadata: { userId: user.id, plan } },
     metadata: { userId: user.id, plan },
-    success_url: `${appUrl}/account?upgraded=1`,
-    cancel_url: `${appUrl}/account?canceled=1`,
+    // session_id lets the account page reconcile immediately on return,
+    // so provisioning doesn't depend solely on webhook delivery.
+    success_url: `${appUrl()}/account?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl()}/account?canceled=1`,
   });
 
   return NextResponse.json({ url: checkout.url });

@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import Nav from "@/components/Nav";
 import CompleteButton from "@/components/CompleteButton";
 import { CATEGORIES, ageLabel } from "@/lib/age";
-import { dayKey, isSubscribed } from "@/lib/activities";
+import { isSubscribed } from "@/lib/activities";
+import { todayKey } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function ActivityDetailPage({
   const child =
     user.children.find((c) => c.id === searchParams.child) ?? user.children[0];
   const cat = CATEGORIES[activity.category] ?? CATEGORIES.cognitive;
+  const backLink = child ? `/activities?child=${child.id}` : "/activities";
 
   if (activity.isPremium && !subscribed) {
     return (
@@ -43,13 +45,13 @@ export default async function ActivityDetailPage({
           <div className="rounded-2xl border border-peach/50 bg-white p-10">
             <div className="text-4xl">🔒</div>
             <h1 className="mt-4 font-display text-2xl font-bold">{activity.title}</h1>
-            <p className="mt-2 text-ink/60">
+            <p className="mt-2 text-ink/70">
               This is a Premium activity. Upgrade to unlock the full library —
               every activity, every age, all three daily picks.
             </p>
             <Link
               href="/account"
-              className="mt-6 inline-block rounded-xl bg-coral px-6 py-2.5 font-semibold text-white hover:bg-terracotta"
+              className="mt-6 inline-block rounded-xl bg-terracotta px-6 py-2.5 font-semibold text-white hover:bg-[#a53d22]"
             >
               See Premium plans
             </Link>
@@ -68,7 +70,7 @@ export default async function ActivityDetailPage({
           childId_activityId_completedOn: {
             childId: child.id,
             activityId: activity.id,
-            completedOn: dayKey(),
+            completedOn: todayKey(),
           },
         },
       })
@@ -78,7 +80,7 @@ export default async function ActivityDetailPage({
     <>
       <Nav />
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <Link href="/activities" className="text-sm text-ink/50 hover:text-terracotta">
+        <Link href={backLink} className="text-sm text-ink/60 hover:text-terracotta">
           ← Activity library
         </Link>
 
@@ -86,16 +88,16 @@ export default async function ActivityDetailPage({
           <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.color}`}>
             {cat.emoji} {cat.label}
           </span>
-          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs text-ink/60 border border-peach/50">
+          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs text-ink/70 border border-peach/50">
             {ageLabel(activity.ageMinMonths)} – {ageLabel(activity.ageMaxMonths)}
           </span>
-          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs text-ink/60 border border-peach/50">
+          <span className="rounded-full bg-white px-2.5 py-0.5 text-xs text-ink/70 border border-peach/50">
             ⏱ about {activity.durationMin} minutes
           </span>
         </div>
 
         <h1 className="mt-3 font-display text-3xl font-bold">{activity.title}</h1>
-        <p className="mt-2 text-lg text-ink/70">{activity.summary}</p>
+        <p className="mt-2 text-lg text-ink/80">{activity.summary}</p>
 
         <div className="mt-6 rounded-2xl border border-sage/60 bg-sage/15 p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-deepsage">
@@ -105,7 +107,7 @@ export default async function ActivityDetailPage({
         </div>
 
         <div className="mt-6 rounded-2xl border border-peach/50 bg-white p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/50">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             You&apos;ll need
           </h2>
           <ul className="mt-2 flex flex-wrap gap-2">
@@ -118,13 +120,13 @@ export default async function ActivityDetailPage({
         </div>
 
         <div className="mt-6 rounded-2xl border border-peach/50 bg-white p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/50">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             How to play
           </h2>
           <ol className="mt-3 space-y-3">
             {steps.map((s, i) => (
               <li key={i} className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-coral text-xs font-bold text-white">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-terracotta text-xs font-bold text-white">
                   {i + 1}
                 </span>
                 <span className="text-sm text-ink/80">{s}</span>
@@ -134,8 +136,8 @@ export default async function ActivityDetailPage({
         </div>
 
         {child && (
-          <div className="mt-8 flex items-center justify-between rounded-2xl border border-peach/50 bg-white p-5">
-            <p className="text-sm text-ink/70">
+          <div className="mt-8 flex items-center justify-between gap-4 rounded-2xl border border-peach/50 bg-white p-5">
+            <p className="text-sm text-ink/80">
               Did this with <span className="font-semibold">{child.name}</span> today?
             </p>
             <CompleteButton

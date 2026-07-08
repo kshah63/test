@@ -1,8 +1,13 @@
-export function ageInMonths(birthDate: Date, now: Date = new Date()): number {
+/**
+ * Age in whole months on the given day key. Birth dates are stored as
+ * midnight-UTC dates and day keys are midnight-UTC too, so this must use
+ * UTC getters throughout (local-time getters shift by a day off-UTC).
+ */
+export function ageInMonths(birthDate: Date, onDay: Date = new Date()): number {
   const months =
-    (now.getFullYear() - birthDate.getFullYear()) * 12 +
-    (now.getMonth() - birthDate.getMonth()) -
-    (now.getDate() < birthDate.getDate() ? 1 : 0);
+    (onDay.getUTCFullYear() - birthDate.getUTCFullYear()) * 12 +
+    (onDay.getUTCMonth() - birthDate.getUTCMonth()) -
+    (onDay.getUTCDate() < birthDate.getUTCDate() ? 1 : 0);
   return Math.max(0, months);
 }
 

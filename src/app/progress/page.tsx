@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import Nav from "@/components/Nav";
 import WeekTracker from "@/components/WeekTracker";
 import { CATEGORIES, ageInMonths, ageLabel } from "@/lib/age";
-import { dayKey, weekDays } from "@/lib/activities";
+import { todayKey, weekDays } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -39,21 +39,23 @@ export default async function ProgressPage({
 
   const child =
     user.children.find((c) => c.id === searchParams.child) ?? user.children[0];
-  const months = ageInMonths(child.birthDate);
+  const today = todayKey();
+  const months = ageInMonths(child.birthDate, today);
 
-  const today = dayKey();
-  const week = weekDays();
+  const week = weekDays(today);
   const todayIndex = week.findIndex((d) => d.getTime() === today.getTime());
 
-  const [weekCompletions, allCompletions, totalCount] = await Promise.all([
+  const [weekCompletions, activeDays, totalCount] = await Promise.all([
     prisma.activityCompletion.findMany({
       where: { childId: child.id, completedOn: { gte: week[0], lte: week[6] } },
       include: { activity: true },
       orderBy: { completedOn: "desc" },
     }),
+    // Distinct days only — enough for the streak without loading every row.
     prisma.activityCompletion.findMany({
       where: { childId: child.id },
       select: { completedOn: true },
+      distinct: ["completedOn"],
     }),
     prisma.activityCompletion.count({ where: { childId: child.id } }),
   ]);
@@ -62,7 +64,7 @@ export default async function ProgressPage({
     (d) => weekCompletions.filter((c) => c.completedOn.getTime() === d.getTime()).length
   );
   const activeDaysThisWeek = weekCounts.filter((c) => c > 0).length;
-  const daysWithActivity = new Set(allCompletions.map((c) => c.completedOn.getTime()));
+  const daysWithActivity = new Set(activeDays.map((c) => c.completedOn.getTime()));
   const streak = computeStreak(daysWithActivity, today);
 
   // Category mix this week.
@@ -84,7 +86,7 @@ export default async function ProgressPage({
                 href={`/progress?child=${c.id}`}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium ${
                   c.id === child.id
-                    ? "bg-coral text-white"
+                    ? "bg-terracotta text-white"
                     : "border border-peach bg-white hover:bg-blush"
                 }`}
               >
@@ -97,23 +99,23 @@ export default async function ProgressPage({
         <h1 className="font-display text-3xl font-bold">
           {child.name}&apos;s week
         </h1>
-        <p className="mt-1 text-ink/60">{ageLabel(months)} old</p>
+        <p className="mt-1 text-ink/70">{ageLabel(months)} old</p>
 
         {/* Stat tiles */}
         <div className="mt-6 grid grid-cols-3 gap-4">
           <div className="rounded-2xl border border-peach/50 bg-white p-5 text-center">
             <p className="font-display text-3xl font-bold text-terracotta">{streak}</p>
-            <p className="mt-1 text-xs text-ink/60">day streak 🔥</p>
+            <p className="mt-1 text-xs text-ink/70">day streak 🔥</p>
           </div>
           <div className="rounded-2xl border border-peach/50 bg-white p-5 text-center">
             <p className="font-display text-3xl font-bold text-terracotta">
               {activeDaysThisWeek}<span className="text-lg text-ink/40">/7</span>
             </p>
-            <p className="mt-1 text-xs text-ink/60">active days this week</p>
+            <p className="mt-1 text-xs text-ink/70">active days this week</p>
           </div>
           <div className="rounded-2xl border border-peach/50 bg-white p-5 text-center">
             <p className="font-display text-3xl font-bold text-terracotta">{totalCount}</p>
-            <p className="mt-1 text-xs text-ink/60">activities all-time</p>
+            <p className="mt-1 text-xs text-ink/70">activities all-time</p>
           </div>
         </div>
 
@@ -147,7 +149,7 @@ export default async function ProgressPage({
         <div className="mt-6 rounded-2xl border border-peach/50 bg-white p-6">
           <h2 className="mb-3 font-display text-lg font-semibold">Completed this week</h2>
           {weekCompletions.length === 0 ? (
-            <p className="text-sm text-ink/60">
+            <p className="text-sm text-ink/70">
               Nothing yet this week —{" "}
               <Link href="/dashboard" className="text-terracotta underline">
                 today&apos;s activities
@@ -159,12 +161,12 @@ export default async function ProgressPage({
               {weekCompletions.map((c) => (
                 <li key={c.id} className="flex items-center justify-between py-2.5">
                   <Link
-                    href={`/activities/${c.activity.slug}`}
+                    href={`/activities/${c.activity.slug}?child=${child.id}`}
                     className="text-sm font-medium hover:text-terracotta"
                   >
                     {c.activity.title}
                   </Link>
-                  <span className="text-xs text-ink/50">
+                  <span className="text-xs text-ink/60">
                     {c.completedOn.toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",

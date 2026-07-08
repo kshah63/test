@@ -8,22 +8,25 @@ export default async function Nav() {
 
   return (
     <header className="border-b border-peach/40 bg-cream/90 backdrop-blur sticky top-0 z-10">
-      <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href={session ? "/dashboard" : "/"} className="font-display text-xl font-bold text-terracotta">
+      <nav className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+        <Link
+          href={session ? "/dashboard" : "/"}
+          className="shrink-0 font-display text-xl font-bold text-terracotta"
+        >
           🌱 TinySteps
         </Link>
         {session ? (
-          <div className="flex items-center gap-1 sm:gap-4 text-sm">
-            <Link href="/dashboard" className="rounded-lg px-2 py-1.5 hover:bg-blush">
+          <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap text-sm sm:gap-4">
+            <Link href="/dashboard" className="shrink-0 rounded-lg px-2 py-1.5 hover:bg-blush">
               Today
             </Link>
-            <Link href="/activities" className="rounded-lg px-2 py-1.5 hover:bg-blush">
+            <Link href="/activities" className="shrink-0 rounded-lg px-2 py-1.5 hover:bg-blush">
               Activities
             </Link>
-            <Link href="/progress" className="rounded-lg px-2 py-1.5 hover:bg-blush">
+            <Link href="/progress" className="shrink-0 rounded-lg px-2 py-1.5 hover:bg-blush">
               Progress
             </Link>
-            <Link href="/account" className="rounded-lg px-2 py-1.5 hover:bg-blush">
+            <Link href="/account" className="shrink-0 rounded-lg px-2 py-1.5 hover:bg-blush">
               Account
             </Link>
             <SignOutButton />
@@ -35,7 +38,7 @@ export default async function Nav() {
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-coral px-3 py-1.5 font-medium text-white hover:bg-terracotta"
+              className="rounded-lg bg-terracotta px-3 py-1.5 font-medium text-white hover:bg-[#a53d22]"
             >
               Get started
             </Link>

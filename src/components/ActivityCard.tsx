@@ -15,6 +15,9 @@ export default function ActivityCard({
   locked?: boolean;
 }) {
   const cat = CATEGORIES[activity.category] ?? CATEGORIES.cognitive;
+  const detailHref = childId
+    ? `/activities/${activity.slug}?child=${childId}`
+    : `/activities/${activity.slug}`;
 
   if (locked) {
     return (
@@ -27,15 +30,15 @@ export default function ActivityCard({
             🔒 Premium
           </span>
         </div>
-        <h3 className="font-display text-lg font-semibold blur-[3px] select-none">
+        <h3 className="font-display text-lg font-semibold blur-[3px] select-none" aria-hidden>
           {activity.title}
         </h3>
-        <p className="mt-1 text-sm text-ink/60 blur-[3px] select-none line-clamp-2">
+        <p className="mt-1 text-sm text-ink/60 blur-[3px] select-none line-clamp-2" aria-hidden>
           {activity.summary}
         </p>
         <Link
           href="/account"
-          className="mt-3 inline-block rounded-lg bg-coral px-3 py-1.5 text-sm font-medium text-white hover:bg-terracotta"
+          className="mt-3 inline-block rounded-lg bg-terracotta px-3 py-1.5 text-sm font-medium text-white hover:bg-[#a53d22]"
         >
           Unlock with Premium →
         </Link>
@@ -48,19 +51,19 @@ export default function ActivityCard({
       className={`rounded-2xl border p-5 transition ${
         completed
           ? "border-sage bg-sage/15"
-          : "border-peach/50 bg-white hover:border-coral/60"
+          : "border-peach/50 bg-white hover:border-terracotta/60"
       }`}
     >
       <div className="mb-2 flex items-center gap-2">
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cat.color}`}>
           {cat.emoji} {cat.label}
         </span>
-        <span className="text-xs text-ink/50">⏱ {activity.durationMin} min</span>
+        <span className="text-xs text-ink/60">⏱ {activity.durationMin} min</span>
         {completed && (
           <span className="ml-auto text-xs font-medium text-deepsage">✓ Done today</span>
         )}
       </div>
-      <Link href={`/activities/${activity.slug}`} className="group">
+      <Link href={detailHref} className="group">
         <h3 className="font-display text-lg font-semibold group-hover:text-terracotta">
           {activity.title}
         </h3>
@@ -68,7 +71,7 @@ export default function ActivityCard({
       </Link>
       <div className="mt-4 flex items-center gap-3">
         <Link
-          href={`/activities/${activity.slug}`}
+          href={detailHref}
           className="rounded-lg border border-peach px-3 py-1.5 text-sm font-medium hover:bg-blush"
         >
           How to play

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -19,6 +19,7 @@ model User {
   subscriptionStatus String               @default("free") // free | active | past_due | canceled
   plan               String? // monthly | yearly
   currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean              @default(false)
   children           Child[]
   completions        ActivityCompletion[]
 }

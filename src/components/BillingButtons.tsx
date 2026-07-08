@@ -38,7 +38,7 @@ export function UpgradeButton({ plan, label }: { plan: "monthly" | "yearly"; lab
       <button
         onClick={upgrade}
         disabled={loading}
-        className="w-full rounded-xl bg-coral py-2.5 font-semibold text-white hover:bg-terracotta disabled:opacity-60"
+        className="w-full rounded-xl bg-terracotta py-2.5 font-semibold text-white hover:bg-[#a53d22] disabled:opacity-60"
       >
         {loading ? "Redirecting…" : label}
       </button>

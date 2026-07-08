@@ -15,7 +15,7 @@ export default async function LandingPage() {
       <main className="mx-auto max-w-5xl px-4">
         {/* Hero */}
         <section className="py-16 text-center sm:py-24">
-          <p className="mb-3 text-sm font-medium uppercase tracking-widest text-coral">
+          <p className="mb-3 text-sm font-medium uppercase tracking-widest text-terracotta">
             Newborn to 6 years
           </p>
           <h1 className="mx-auto max-w-2xl font-display text-4xl font-bold leading-tight sm:text-5xl">
@@ -29,7 +29,7 @@ export default async function LandingPage() {
           <div className="mt-8 flex justify-center gap-3">
             <Link
               href="/signup"
-              className="rounded-xl bg-coral px-6 py-3 font-semibold text-white shadow-sm hover:bg-terracotta"
+              className="rounded-xl bg-terracotta px-6 py-3 font-semibold text-white shadow-sm hover:bg-[#a53d22]"
             >
               Start free
             </Link>
@@ -104,30 +104,30 @@ export default async function LandingPage() {
               <h3 className="font-display text-lg font-semibold">Free</h3>
               <p className="mt-1 font-display text-3xl font-bold">$0</p>
               <ul className="mt-4 space-y-2 text-sm text-ink/70">
-                <li>✓ One featured activity per day</li>
-                <li>✓ Age-matched suggestions</li>
+                <li>✓ A featured activity every day</li>
+                <li>✓ The everyday activity library</li>
                 <li>✓ Weekly progress tracking</li>
                 <li>✓ One child profile</li>
               </ul>
             </div>
-            <div className="relative rounded-2xl border-2 border-coral bg-white p-6">
-              <span className="absolute -top-3 left-6 rounded-full bg-coral px-3 py-0.5 text-xs font-semibold text-white">
+            <div className="relative rounded-2xl border-2 border-terracotta bg-white p-6">
+              <span className="absolute -top-3 left-6 rounded-full bg-terracotta px-3 py-0.5 text-xs font-semibold text-white">
                 Most popular
               </span>
               <h3 className="font-display text-lg font-semibold">Premium</h3>
               <p className="mt-1 font-display text-3xl font-bold">
-                $6.99<span className="text-base font-normal text-ink/50">/mo</span>
+                $6.99<span className="text-base font-normal text-ink/60">/mo</span>
               </p>
-              <p className="text-xs text-ink/50">or $59/year — save 30%</p>
+              <p className="text-xs text-ink/60">or $59/year — save 30%</p>
               <ul className="mt-4 space-y-2 text-sm text-ink/70">
-                <li>✓ All 3 daily activities unlocked</li>
-                <li>✓ Full activity library, all ages</li>
+                <li>✓ All 3 daily picks, every day</li>
+                <li>✓ Premium-only activities in every age band</li>
                 <li>✓ Unlimited child profiles</li>
-                <li>✓ Premium-only activities</li>
+                <li>✓ Everything in Free</li>
               </ul>
               <Link
                 href="/signup"
-                className="mt-5 block rounded-xl bg-coral py-2.5 text-center font-semibold text-white hover:bg-terracotta"
+                className="mt-5 block rounded-xl bg-terracotta py-2.5 text-center font-semibold text-white hover:bg-[#a53d22]"
               >
                 Start free, upgrade anytime
               </Link>
@@ -135,7 +135,7 @@ export default async function LandingPage() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-peach/40 py-8 text-center text-sm text-ink/50">
+      <footer className="border-t border-peach/40 py-8 text-center text-sm text-ink/60">
         🌱 TinySteps — little moments, big development
       </footer>
     </>
