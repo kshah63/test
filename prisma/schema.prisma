@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  passwordHash       String
+  name               String
+  createdAt          DateTime             @default(now())
+  // Billing
+  stripeCustomerId   String?              @unique
+  subscriptionId     String?
+  subscriptionStatus String               @default("free") // free | active | past_due | canceled
+  plan               String? // monthly | yearly
+  currentPeriodEnd   DateTime?
+  children           Child[]
+  completions        ActivityCompletion[]
+}
+
+model Child {
+  id          String               @id @default(cuid())
+  userId      String
+  name        String
+  birthDate   DateTime
+  createdAt   DateTime             @default(now())
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions ActivityCompletion[]
+}
+
+model Activity {
+  id           String               @id @default(cuid())
+  slug         String               @unique
+  title        String
+  summary      String
+  steps        String // JSON array of step strings
+  materials    String // JSON array of material strings
+  category     String // motor | language | sensory | cognitive | social
+  benefit      String // what this builds in the developing brain
+  ageMinMonths Int
+  ageMaxMonths Int
+  durationMin  Int                  @default(10)
+  isPremium    Boolean              @default(false)
+  completions  ActivityCompletion[]
+}
+
+model ActivityCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  childId     String
+  activityId  String
+  completedOn DateTime // normalized to midnight UTC of the day completed
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child       Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([childId, activityId, completedOn])
+  @@index([userId, completedOn])
+}
